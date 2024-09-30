@@ -1088,13 +1088,13 @@ open class Session {
     func performDataRequest(_ request: DataRequest) {
         dispatchPrecondition(condition: .onQueue(requestQueue))
 
-        performSetupOperations(for: request, convertible: request.convertible)
+        performSetupOperations(for: request, uploadable: nil, convertible: request.convertible)
     }
 
     func performDataStreamRequest(_ request: DataStreamRequest) {
         dispatchPrecondition(condition: .onQueue(requestQueue))
 
-        performSetupOperations(for: request, convertible: request.convertible)
+        performSetupOperations(for: request, uploadable: nil, convertible: request.convertible)
     }
 
     #if canImport(Darwin) && !canImport(FoundationNetworking)
@@ -1102,14 +1102,16 @@ open class Session {
     func performWebSocketRequest(_ request: WebSocketRequest) {
         dispatchPrecondition(condition: .onQueue(requestQueue))
 
-        performSetupOperations(for: request, convertible: request.convertible)
+        performSetupOperations(for: request, uploadable: nil, convertible: request.convertible)
     }
     #endif
 
     func performUploadRequest(_ request: UploadRequest) {
         dispatchPrecondition(condition: .onQueue(requestQueue))
 
-        performSetupOperations(for: request, convertible: request.convertible) {
+        let uploadable = try? request.uploadable?.createUploadable()
+
+        performSetupOperations(for: request, uploadable: uploadable, convertible: request.convertible) {
             do {
                 let uploadable = try request.upload.createUploadable()
                 self.rootQueue.async { request.didCreateUploadable(uploadable) }
@@ -1126,13 +1128,14 @@ open class Session {
 
         switch request.downloadable {
         case let .request(convertible):
-            performSetupOperations(for: request, convertible: convertible)
+            performSetupOperations(for: request, uploadable: nil, convertible: convertible)
         case let .resumeData(resumeData):
             rootQueue.async { self.didReceiveResumeData(resumeData, for: request) }
         }
     }
 
     func performSetupOperations(for request: Request,
+                                uploadable: UploadRequest.Uploadable?,
                                 convertible: any URLRequestConvertible,
                                 shouldCreateTask: @escaping () -> Bool = { true }) {
         dispatchPrecondition(condition: .onQueue(requestQueue))
@@ -1159,7 +1162,7 @@ open class Session {
 
         let adapterState = RequestAdapterState(requestID: request.id, session: self)
 
-        adapter.adapt(initialRequest, using: adapterState) { result in
+        adapter.adapt(initialRequest, uploadable: uploadable, using: adapterState) { result in
             do {
                 let adaptedRequest = try result.get()
                 try adaptedRequest.validate()
