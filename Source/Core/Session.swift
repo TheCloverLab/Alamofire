@@ -1109,7 +1109,7 @@ open class Session {
     func performUploadRequest(_ request: UploadRequest) {
         dispatchPrecondition(condition: .onQueue(requestQueue))
 
-        let uploadable = try? request.uploadable?.createUploadable()
+        let uploadable = try? request.upload.createUploadable()
 
         performSetupOperations(for: request, uploadable: uploadable, convertible: request.convertible) {
             do {
